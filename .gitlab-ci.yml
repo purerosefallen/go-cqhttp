@@ -20,7 +20,8 @@ binary:
     - mkdir dist
     - go build -ldflags "-s -w -extldflags '-static'" -o dist/cqhttp
   artifacts:
-    - dist
+    paths:
+      - dist/
 
 docker:
   stage: build
