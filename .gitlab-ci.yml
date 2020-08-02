@@ -10,7 +10,19 @@ variables:
 before_script:
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
-build:
+binary:
+  stage: build
+  tags:
+    - linux
+  image: golang:1.14.2-alpine
+  script:
+    - go env -w GO111MODULE=auto && go env -w CGO_ENABLED=0 && go env -w GOPROXY=https://goproxy.cn,https://gocenter.io,https://goproxy.io,direct
+    - mkdir dist
+    - go build -ldflags "-s -w -extldflags '-static'" -o dist/cqhttp
+  artifacts:
+    - dist
+
+docker:
   stage: build
   tags: 
     - docker
@@ -18,8 +30,22 @@ build:
     - docker build --pull -t $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
 
+upload_to_minio:
+  stage: deploy
+  dependencies:
+    - binary
+  tags: 
+    - linux
+  image: python
+  script:
+    - pip install -U awscli
+    - aws s3 --endpoint=https://minio.mycard.moe:9000 sync --delete dist/ s3://mycard/cqhttp
+  only:
+    - master
+
 deploy_latest:
   stage: deploy
+  dependencies: []
   tags: 
     - docker
   script:
@@ -31,6 +57,7 @@ deploy_latest:
 
 deploy_tag:
   stage: deploy
+  dependencies: []
   tags: 
     - docker
   variables:
