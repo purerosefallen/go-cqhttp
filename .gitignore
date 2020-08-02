@@ -1,3 +1,5 @@
 config.json
 logs/
 .idea/
+device.json
+data/
