@@ -132,6 +132,20 @@ func main() {
 			log.Fatalf("加载设备信息失败: %v", err)
 		}
 	}
+
+	if os.Getenv("ACCESS_TOKEN") != "" {
+		conf.AccessToken = os.Getenv("ACCESS_TOKEN")
+		log.Infof("已覆盖 ACCESS_TOKEN 为 " + os.Getenv("ACCESS_TOKEN"))
+	}
+
+	if os.Getenv("ENABLE_DB") != "false" && os.Getenv("ENABLE_DB") != "" {
+		conf.EnableDB = true
+		log.Infof("已覆盖 ENABLE_DB 为 true")
+	} else if os.Getenv("ENABLE_DB") == "false" {
+		conf.EnableDB = false
+		log.Infof("已覆盖 ENABLE_DB 为 false")
+	}
+	
 	log.Info("Bot将在5秒后登录并开始信息处理, 按 Ctrl+C 取消.")
 	time.Sleep(time.Second * 5)
 	log.Info("开始尝试登录并同步消息...")
