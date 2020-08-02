@@ -17,4 +17,6 @@ FROM alpine:latest
 COPY --from=builder /build/cqhttp /usr/bin/cqhttp
 RUN chmod +x /usr/bin/cqhttp
 
-ENTRYPOINT ["/usr/bin/cqhttp"]
+WORKDIR /data
+
+ENTRYPOINT [ "/usr/bin/cqhttp" ]
