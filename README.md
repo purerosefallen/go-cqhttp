@@ -117,4 +117,6 @@
 * `PASS` QQ 密码。
 * `HTTP_POST` 后端路径。
 * `HTTP_SECRET` 后端密钥。这两个环境变量若使用 websocket 则不必需。
+* `ACCESS_TOKEN` 访问令牌，需要和业务后端保持一致。
+* `ENABLE_DB` 默认为 `true`，若为 `false` 则不使用数据库，功能会受到限制。
 * `DEBUG` 若为 `true` 则输出更多的调试信息。
