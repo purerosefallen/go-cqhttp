@@ -2,7 +2,6 @@ FROM golang:1.14.2-alpine AS builder
 
 RUN go env -w GO111MODULE=auto \
   && go env -w CGO_ENABLED=0 \
-  && go env -w GOPROXY=https://goproxy.cn,https://gocenter.io,https://goproxy.io,direct \
   && mkdir /build
 
 WORKDIR /build

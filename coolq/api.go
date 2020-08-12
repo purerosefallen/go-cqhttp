@@ -439,14 +439,14 @@ func (bot *CQBot) CQGetForwardMessage(resId string) MSG {
 	}
 	var r []MSG
 	for _, n := range m.Nodes {
-		checkImage(n.Message)
+		checkMedia(n.Message)
 		r = append(r, MSG{
 			"sender": MSG{
 				"user_id":  n.SenderId,
 				"nickname": n.SenderName,
 			},
 			"time":    n.Time,
-			"content": ToStringMessage(n.Message, 0, false),
+			"content": ToFormattedMessage(n.Message, 0, false),
 		})
 	}
 	return OK(MSG{
@@ -477,7 +477,7 @@ func (bot *CQBot) CQCanSendImage() MSG {
 }
 
 func (bot *CQBot) CQCanSendRecord() MSG {
-	return OK(MSG{"yes": false})
+	return OK(MSG{"yes": true})
 }
 
 func (bot *CQBot) CQGetStatus() MSG {

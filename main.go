@@ -3,16 +3,10 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Mrs4s/MiraiGo/client"
-	"github.com/Mrs4s/go-cqhttp/coolq"
-	"github.com/Mrs4s/go-cqhttp/global"
-	"github.com/Mrs4s/go-cqhttp/server"
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
-	log "github.com/sirupsen/logrus"
-	easy "github.com/t-tomalak/logrus-easy-formatter"
-	asciiart "github.com/yinghau76/go-ascii-art"
 	"image"
 	"io"
 	"io/ioutil"
@@ -22,6 +16,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Mrs4s/MiraiGo/binary"
+	"github.com/Mrs4s/MiraiGo/client"
+	"github.com/Mrs4s/go-cqhttp/coolq"
+	"github.com/Mrs4s/go-cqhttp/global"
+	"github.com/Mrs4s/go-cqhttp/server"
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	log "github.com/sirupsen/logrus"
+	easy "github.com/t-tomalak/logrus-easy-formatter"
+	asciiart "github.com/yinghau76/go-ascii-art"
 )
 
 func init() {
@@ -33,12 +37,14 @@ func init() {
 	if err == nil {
 		log.SetOutput(io.MultiWriter(os.Stderr, w))
 	}
-	if !global.PathExists("data") {
-		if err := os.Mkdir("data", 0777); err != nil {
-			log.Fatalf("创建数据文件夹失败: %v", err)
-		}
-		if err := os.Mkdir(path.Join("data", "images"), 0777); err != nil {
+	if !global.PathExists(global.IMAGE_PATH) {
+		if err := os.MkdirAll(global.IMAGE_PATH, os.ModePerm); err != nil {
 			log.Fatalf("创建图片缓存文件夹失败: %v", err)
+		}
+	}
+	if !global.PathExists(global.VOICE_PATH) {
+		if err := os.MkdirAll(global.VOICE_PATH, os.ModePerm); err != nil {
+			log.Fatalf("创建语音缓存文件夹失败: %v", err)
 		}
 	}
 	if global.PathExists("cqhttp.json") {
@@ -86,10 +92,11 @@ func main() {
 			Uin:      uin,
 			Password: pwd,
 			HttpConfig: &global.GoCQHttpConfig{
-				Enabled:  true,
-				Host:     "0.0.0.0",
-				Port:     5700,
-				PostUrls: map[string]string{},
+				Enabled:           true,
+				Host:              "0.0.0.0",
+				Port:              5700,
+				PostUrls:          map[string]string{},
+				PostMessageFormat: "string",
 			},
 			WSConfig: &global.GoCQWebsocketConfig{
 				Enabled: true,
@@ -112,7 +119,7 @@ func main() {
 		time.Sleep(time.Second * 5)
 		return
 	}
-	if conf.Uin == 0 || conf.Password == "" {
+	if conf.Uin == 0 || (conf.Password == "" && conf.PasswordEncrypted == "") {
 		log.Warnf("请修改 config.json 以添加账号密码.")
 		time.Sleep(time.Second * 5)
 		return
@@ -124,7 +131,7 @@ func main() {
 	if !global.PathExists("device.json") {
 		log.Warn("虚拟设备信息不存在, 将自动生成随机设备.")
 		client.GenRandomDevice()
-		_ = ioutil.WriteFile("device.json", client.SystemDeviceInfo.ToJson(), 0777)
+		_ = ioutil.WriteFile("device.json", client.SystemDeviceInfo.ToJson(), os.ModePerm)
 		log.Info("已生成设备信息并保存到 device.json 文件.")
 	} else {
 		log.Info("将使用 device.json 内的设备信息运行Bot.")
@@ -145,7 +152,25 @@ func main() {
 		conf.EnableDB = false
 		log.Infof("已覆盖 ENABLE_DB 为 false")
 	}
-	
+
+	if conf.EncryptPassword && conf.PasswordEncrypted == "" {
+		log.Infof("密码加密已启用, 请输入Key对密码进行加密: (Enter 提交)")
+		strKey, _ := console.ReadString('\n')
+		key := md5.Sum([]byte(strKey))
+		if encrypted := EncryptPwd(conf.Password, key[:]); encrypted != "" {
+			conf.Password = ""
+			conf.PasswordEncrypted = encrypted
+			_ = conf.Save("config.json")
+		} else {
+			log.Warnf("加密时出现问题.")
+		}
+	}
+	if conf.PasswordEncrypted != "" {
+		log.Infof("密码加密已启用, 请输入Key对密码进行解密以继续: (Enter 提交)")
+		strKey, _ := console.ReadString('\n')
+		key := md5.Sum([]byte(strKey))
+		conf.Password = DecryptPwd(conf.PasswordEncrypted, key[:])
+	}
 	log.Info("Bot将在5秒后登录并开始信息处理, 按 Ctrl+C 取消.")
 	time.Sleep(time.Second * 5)
 	log.Info("开始尝试登录并同步消息...")
@@ -156,9 +181,10 @@ func main() {
 		if !rsp.Success {
 			switch rsp.Error {
 			case client.NeedCaptcha:
+				_ = ioutil.WriteFile("captcha.jpg", rsp.CaptchaImage, os.ModePerm)
 				img, _, _ := image.Decode(bytes.NewReader(rsp.CaptchaImage))
 				fmt.Println(asciiart.New("image", img).Art)
-				log.Warn("请输入验证码： (Enter 提交)")
+				log.Warn("请输入验证码 (captcha.jpg)： (Enter 提交)")
 				text, _ := console.ReadString('\n')
 				rsp, err = cli.SubmitCaptcha(strings.ReplaceAll(text, "\n", ""), rsp.CaptchaSign)
 				continue
@@ -184,8 +210,14 @@ func main() {
 	b := coolq.NewQQBot(cli, conf)
 	if conf.HttpConfig != nil && conf.HttpConfig.Enabled {
 		server.HttpServer.Run(fmt.Sprintf("%s:%d", conf.HttpConfig.Host, conf.HttpConfig.Port), conf.AccessToken, b)
+		if conf.HttpConfig.PostMessageFormat != "string" && conf.HttpConfig.PostMessageFormat != "array" {
+			log.Warnf("http_config.post_message_format 配置错误, 将自动使用 string")
+			coolq.SetMessageFormat("string")
+		} else {
+			coolq.SetMessageFormat(conf.HttpConfig.PostMessageFormat)
+		}
 		for k, v := range conf.HttpConfig.PostUrls {
-			server.NewHttpClient().Run(k, v, b)
+			server.NewHttpClient().Run(k, v, conf.HttpConfig.Timeout, b)
 		}
 	}
 	if conf.WSConfig != nil && conf.WSConfig.Enabled {
@@ -223,4 +255,29 @@ func main() {
 	signal.Notify(c, os.Interrupt, os.Kill)
 	<-c
 	b.Release()
+}
+
+func EncryptPwd(pwd string, key []byte) string {
+	tea := binary.NewTeaCipher(key)
+	if tea == nil {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(tea.Encrypt([]byte(pwd)))
+}
+
+func DecryptPwd(ePwd string, key []byte) string {
+	defer func() {
+		if pan := recover(); pan != nil {
+			log.Fatalf("密码解密失败: %v", pan)
+		}
+	}()
+	encrypted, err := base64.StdEncoding.DecodeString(ePwd)
+	if err != nil {
+		panic(err)
+	}
+	tea := binary.NewTeaCipher(key)
+	if tea == nil {
+		panic("密钥错误")
+	}
+	return string(tea.Decrypt(encrypted))
 }
