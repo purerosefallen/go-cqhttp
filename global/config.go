@@ -14,9 +14,11 @@ type JsonConfig struct {
 	AccessToken       string                        `json:"access_token"`
 	ReLogin           bool                          `json:"relogin"`
 	ReLoginDelay      int                           `json:"relogin_delay"`
+	AsyncLoad         bool                          `json:"async_load"`
 	HttpConfig        *GoCQHttpConfig               `json:"http_config"`
 	WSConfig          *GoCQWebsocketConfig          `json:"ws_config"`
 	ReverseServers    []*GoCQReverseWebsocketConfig `json:"ws_reverse_servers"`
+	PostMessageFormat string                        `json:"post_message_format"`
 	Debug             bool                          `json:"debug"`
 }
 
@@ -40,12 +42,11 @@ type CQHttpApiConfig struct {
 }
 
 type GoCQHttpConfig struct {
-	Enabled           bool              `json:"enabled"`
-	Host              string            `json:"host"`
-	Port              uint16            `json:"port"`
-	Timeout           int32             `json:"timeout"`
-	PostUrls          map[string]string `json:"post_urls"`
-	PostMessageFormat string            `json:"post_message_format"`
+	Enabled  bool              `json:"enabled"`
+	Host     string            `json:"host"`
+	Port     uint16            `json:"port"`
+	Timeout  int32             `json:"timeout"`
+	PostUrls map[string]string `json:"post_urls"`
 }
 
 type GoCQWebsocketConfig struct {
@@ -64,15 +65,15 @@ type GoCQReverseWebsocketConfig struct {
 
 func DefaultConfig() *JsonConfig {
 	return &JsonConfig{
-		EnableDB:     true,
-		ReLogin:      true,
-		ReLoginDelay: 3,
+		EnableDB:          true,
+		ReLogin:           true,
+		ReLoginDelay:      3,
+		PostMessageFormat: "string",
 		HttpConfig: &GoCQHttpConfig{
-			Enabled:           true,
-			Host:              "0.0.0.0",
-			Port:              5700,
-			PostUrls:          map[string]string{},
-			PostMessageFormat: "string",
+			Enabled:  true,
+			Host:     "0.0.0.0",
+			Port:     5700,
+			PostUrls: map[string]string{},
 		},
 		WSConfig: &GoCQWebsocketConfig{
 			Enabled: true,

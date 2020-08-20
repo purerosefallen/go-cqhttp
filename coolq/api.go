@@ -34,8 +34,11 @@ func (bot *CQBot) CQGetFriendList() MSG {
 }
 
 // https://cqhttp.cc/docs/4.15/#/API?id=get_group_list-%E8%8E%B7%E5%8F%96%E7%BE%A4%E5%88%97%E8%A1%A8
-func (bot *CQBot) CQGetGroupList() MSG {
+func (bot *CQBot) CQGetGroupList(noCache bool) MSG {
 	var gs []MSG
+	if noCache {
+		_ = bot.Client.ReloadGroupList()
+	}
 	for _, g := range bot.Client.GroupList {
 		gs = append(gs, MSG{
 			"group_id":         g.Code,
@@ -96,11 +99,25 @@ func (bot *CQBot) CQGetGroupMemberInfo(groupId, userId int64, noCache bool) MSG 
 }
 
 // https://cqhttp.cc/docs/4.15/#/API?id=send_group_msg-%E5%8F%91%E9%80%81%E7%BE%A4%E6%B6%88%E6%81%AF
-func (bot *CQBot) CQSendGroupMessage(groupId int64, i interface{}) MSG {
+func (bot *CQBot) CQSendGroupMessage(groupId int64, i interface{}, autoEscape bool) MSG {
 	var str string
+	fixAt := func(elem []message.IMessageElement) {
+		for _, e := range elem {
+			if at, ok := e.(*message.AtElement); ok && at.Target != 0 {
+				at.Display = "@" + func() string {
+					mem := bot.Client.FindGroup(groupId).FindMember(at.Target)
+					if mem != nil {
+						return mem.DisplayName()
+					}
+					return strconv.FormatInt(at.Target, 10)
+				}()
+			}
+		}
+	}
 	if m, ok := i.(gjson.Result); ok {
 		if m.Type == gjson.JSON {
 			elem := bot.ConvertObjectMessage(m, true)
+			fixAt(elem)
 			mid := bot.SendGroupMessage(groupId, &message.SendingMessage{Elements: elem})
 			if mid == -1 {
 				return Failed(100)
@@ -113,20 +130,19 @@ func (bot *CQBot) CQSendGroupMessage(groupId int64, i interface{}) MSG {
 			}
 			return m.Raw
 		}()
-	}
-	if s, ok := i.(string); ok {
+	} else if s, ok := i.(string); ok {
 		str = s
 	}
 	if str == "" {
 		return Failed(100)
 	}
-	elem := bot.ConvertStringMessage(str, true)
-	// fix at display
-	for _, e := range elem {
-		if at, ok := e.(*message.AtElement); ok && at.Target != 0 {
-			at.Display = "@" + bot.Client.FindGroup(groupId).FindMember(at.Target).DisplayName()
-		}
+	var elem []message.IMessageElement
+	if autoEscape {
+		elem = append(elem, message.NewText(str))
+	} else {
+		elem = bot.ConvertStringMessage(str, true)
 	}
+	fixAt(elem)
 	mid := bot.SendGroupMessage(groupId, &message.SendingMessage{Elements: elem})
 	if mid == -1 {
 		return Failed(100)
@@ -205,7 +221,7 @@ func (bot *CQBot) CQSendGroupForwardMessage(groupId int64, m gjson.Result) MSG {
 }
 
 // https://cqhttp.cc/docs/4.15/#/API?id=send_private_msg-%E5%8F%91%E9%80%81%E7%A7%81%E8%81%8A%E6%B6%88%E6%81%AF
-func (bot *CQBot) CQSendPrivateMessage(userId int64, i interface{}) MSG {
+func (bot *CQBot) CQSendPrivateMessage(userId int64, i interface{}, autoEscape bool) MSG {
 	var str string
 	if m, ok := i.(gjson.Result); ok {
 		if m.Type == gjson.JSON {
@@ -222,14 +238,18 @@ func (bot *CQBot) CQSendPrivateMessage(userId int64, i interface{}) MSG {
 			}
 			return m.Raw
 		}()
-	}
-	if s, ok := i.(string); ok {
+	} else if s, ok := i.(string); ok {
 		str = s
 	}
 	if str == "" {
 		return Failed(100)
 	}
-	elem := bot.ConvertStringMessage(str, false)
+	var elem []message.IMessageElement
+	if autoEscape {
+		elem = append(elem, message.NewText(str))
+	} else {
+		elem = bot.ConvertStringMessage(str, false)
+	}
 	mid := bot.SendPrivateMessage(userId, &message.SendingMessage{Elements: elem})
 	if mid == -1 {
 		return Failed(100)
@@ -359,6 +379,61 @@ func (bot *CQBot) CQDeleteMessage(messageId int32) MSG {
 	return OK(nil)
 }
 
+// https://github.com/howmanybots/onebot/blob/master/v11/specs/api/public.md#get_group_honor_info-%E8%8E%B7%E5%8F%96%E7%BE%A4%E8%8D%A3%E8%AA%89%E4%BF%A1%E6%81%AF
+func (bot *CQBot) CQGetGroupHonorInfo(groupId int64, t string) MSG {
+	msg := MSG{"group_id": groupId}
+	convertMem := func(memList []client.HonorMemberInfo) (ret []MSG) {
+		for _, mem := range memList {
+			ret = append(ret, MSG{
+				"user_id":     mem.Uin,
+				"nickname":    mem.Name,
+				"avatar":      mem.Avatar,
+				"description": mem.Desc,
+			})
+		}
+		return
+	}
+	if t == "talkative" || t == "all" {
+		if honor, err := bot.Client.GetGroupHonorInfo(groupId, client.Talkative); err == nil {
+			if honor.CurrentTalkative.Uin != 0 {
+				msg["current_talkative"] = MSG{
+					"user_id":   honor.CurrentTalkative.Uin,
+					"nickname":  honor.CurrentTalkative.Name,
+					"avatar":    honor.CurrentTalkative.Avatar,
+					"day_count": honor.CurrentTalkative.DayCount,
+				}
+			}
+			msg["talkative_list"] = convertMem(honor.TalkativeList)
+		}
+	}
+
+	if t == "performer" || t == "all" {
+		if honor, err := bot.Client.GetGroupHonorInfo(groupId, client.Performer); err == nil {
+			msg["performer_lis"] = convertMem(honor.ActorList)
+		}
+	}
+
+	if t == "legend" || t == "all" {
+		if honor, err := bot.Client.GetGroupHonorInfo(groupId, client.Legend); err == nil {
+			msg["legend_list"] = convertMem(honor.LegendList)
+		}
+	}
+
+	if t == "strong_newbie" || t == "all" {
+		if honor, err := bot.Client.GetGroupHonorInfo(groupId, client.StrongNewbie); err == nil {
+			msg["strong_newbie_list"] = convertMem(honor.StrongNewbieList)
+		}
+	}
+
+	if t == "emotion" || t == "all" {
+		if honor, err := bot.Client.GetGroupHonorInfo(groupId, client.Emotion); err == nil {
+			msg["emotion_list"] = convertMem(honor.EmotionList)
+		}
+	}
+
+	return OK(msg)
+}
+
 // https://cqhttp.cc/docs/4.15/#/API?id=-handle_quick_operation-%E5%AF%B9%E4%BA%8B%E4%BB%B6%E6%89%A7%E8%A1%8C%E5%BF%AB%E9%80%9F%E6%93%8D%E4%BD%9C
 // https://github.com/richardchien/coolq-http-api/blob/master/src/cqhttp/plugins/web/http.cpp#L376
 func (bot *CQBot) CQHandleQuickOperation(context, operation gjson.Result) MSG {
@@ -368,6 +443,7 @@ func (bot *CQBot) CQHandleQuickOperation(context, operation gjson.Result) MSG {
 		msgType := context.Get("message_type").Str
 		reply := operation.Get("reply")
 		if reply.Exists() {
+			autoEscape := global.EnsureBool(operation.Get("auto_escape"), false)
 			/*
 				at := true
 				if operation.Get("at_sender").Exists() {
@@ -376,10 +452,10 @@ func (bot *CQBot) CQHandleQuickOperation(context, operation gjson.Result) MSG {
 			*/
 			// TODO: 处理at字段
 			if msgType == "group" {
-				bot.CQSendGroupMessage(context.Get("group_id").Int(), reply)
+				bot.CQSendGroupMessage(context.Get("group_id").Int(), reply, autoEscape)
 			}
 			if msgType == "private" {
-				bot.CQSendPrivateMessage(context.Get("user_id").Int(), reply)
+				bot.CQSendPrivateMessage(context.Get("user_id").Int(), reply, autoEscape)
 			}
 		}
 		if msgType == "group" {
@@ -404,12 +480,12 @@ func (bot *CQBot) CQHandleQuickOperation(context, operation gjson.Result) MSG {
 		}
 	case "request":
 		reqType := context.Get("request_type").Str
-		if context.Get("approve").Bool() {
+		if operation.Get("approve").Exists() {
 			if reqType == "friend" {
-				bot.CQProcessFriendRequest(context.Get("flag").Str, true)
+				bot.CQProcessFriendRequest(context.Get("flag").Str, operation.Get("approve").Bool())
 			}
 			if reqType == "group" {
-				bot.CQProcessGroupRequest(context.Get("flag").Str, context.Get("sub_type").Str, true)
+				bot.CQProcessGroupRequest(context.Get("flag").Str, context.Get("sub_type").Str, operation.Get("approve").Bool())
 			}
 		}
 	}
@@ -439,7 +515,7 @@ func (bot *CQBot) CQGetForwardMessage(resId string) MSG {
 	}
 	var r []MSG
 	for _, n := range m.Nodes {
-		checkMedia(n.Message)
+		bot.checkMedia(n.Message)
 		r = append(r, MSG{
 			"sender": MSG{
 				"user_id":  n.SenderId,

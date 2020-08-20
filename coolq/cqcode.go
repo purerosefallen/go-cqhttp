@@ -1,6 +1,7 @@
 package coolq
 
 import (
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -75,6 +76,18 @@ func ToArrayMessage(e []message.IMessageElement, code int64, raw ...bool) (r []M
 					"data": map[string]string{"file": o.Name, "url": o.Url},
 				}
 			}
+		case *message.ShortVideoElement:
+			if ur {
+				m = MSG{
+					"type": "video",
+					"data": map[string]string{"file": o.Name},
+				}
+			} else {
+				m = MSG{
+					"type": "video",
+					"data": map[string]string{"file": o.Name, "url": o.Url},
+				}
+			}
 		case *message.ImageElement:
 			if ur {
 				m = MSG{
@@ -119,6 +132,12 @@ func ToStringMessage(e []message.IMessageElement, code int64, raw ...bool) (r st
 				r += fmt.Sprintf(`[CQ:record,file=%s]`, o.Name)
 			} else {
 				r += fmt.Sprintf(`[CQ:record,file=%s,url=%s]`, o.Name, CQCodeEscapeValue(o.Url))
+			}
+		case *message.ShortVideoElement:
+			if ur {
+				r += fmt.Sprintf(`[CQ:video,file=%s]`, o.Name)
+			} else {
+				r += fmt.Sprintf(`[CQ:video,file=%s,url=%s]`, o.Name, CQCodeEscapeValue(o.Url))
 			}
 		case *message.ImageElement:
 			if ur {
@@ -243,10 +262,23 @@ func (bot *CQBot) ToElement(t string, d map[string]string, group bool) (message.
 	case "image":
 		f := d["file"]
 		if strings.HasPrefix(f, "http") || strings.HasPrefix(f, "https") {
+			cache := d["cache"]
+			if cache == "" {
+				cache = "1"
+			}
+			hash := md5.Sum([]byte(f))
+			cacheFile := path.Join(global.CACHE_PATH, hex.EncodeToString(hash[:])+".cache")
+			if global.PathExists(cacheFile) && cache == "1" {
+				b, err := ioutil.ReadFile(cacheFile)
+				if err == nil {
+					return message.NewImage(b), nil
+				}
+			}
 			b, err := global.GetBytes(f)
 			if err != nil {
 				return nil, err
 			}
+			_ = ioutil.WriteFile(cacheFile, b, 0644)
 			return message.NewImage(b), nil
 		}
 		if strings.HasPrefix(f, "base64") {
@@ -367,7 +399,7 @@ func (bot *CQBot) ToElement(t string, d map[string]string, group bool) (message.
 			}
 			data = b
 		}
-		if !global.IsAMR(data) {
+		if !global.IsAMRorSILK(data) {
 			return nil, errors.New("unsupported voice file format (please use AMR file for now)")
 		}
 		return &message.VoiceElement{Data: data}, nil
@@ -414,7 +446,7 @@ func CQCodeUnescapeText(content string) string {
 }
 
 func CQCodeUnescapeValue(content string) string {
-	ret := CQCodeUnescapeText(content)
-	ret = strings.ReplaceAll(ret, "&#44;", ",")
+	ret := strings.ReplaceAll(content, "&#44;", ",")
+	ret = CQCodeUnescapeText(ret)
 	return ret
 }
