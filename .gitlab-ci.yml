@@ -6,6 +6,7 @@ variables:
   GIT_DEPTH: "1"
   CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
   CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:latest
+  GO_CQHTTP_VERSION: v0.9.20-mycard
 
 binary:
   stage: build
@@ -15,7 +16,7 @@ binary:
   script:
     - go env -w GO111MODULE=auto && go env -w CGO_ENABLED=0 && go env -w GOPROXY=https://goproxy.cn,https://gocenter.io,https://goproxy.io,direct
     - mkdir dist
-    - go build -ldflags "-s -w -extldflags '-static'" -o dist/cqhttp
+    - go build -ldflags "-s -w -extldflags '-static' -X 'github.com/Mrs4s/go-cqhttp/coolq.version=$GO_CQHTTP_VERSION'" -o dist/cqhttp
   artifacts:
     paths:
       - dist/

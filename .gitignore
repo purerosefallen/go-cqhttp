@@ -4,3 +4,4 @@ logs/
 device.json
 data/
 vendor/
+/go-cqhttp
