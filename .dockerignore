@@ -3,3 +3,9 @@
 Dockerfile
 README.md
 LICENSE
+config.json
+logs/
+.idea/
+device.json
+data/
+vendor/
