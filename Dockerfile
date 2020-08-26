@@ -21,4 +21,14 @@ RUN chmod +x /usr/bin/cqhttp
 
 WORKDIR /data
 
+ENV UIN 11111111
+ENV PASS password
+ENV HTTP_POST http://app
+ENV HTTP_SECRET aaaaaaaaaa
+ENV ACCESS_TOKEN bbbbbbbbbb
+ENV ENABLE_DB 'true'
+ENV DEBUG 'false'
+ENV IGNORE_INVALID_CQCODE 'false'
+ENV FORCE_FRAGMENTED 'true'
+
 ENTRYPOINT [ "/usr/bin/cqhttp" ]

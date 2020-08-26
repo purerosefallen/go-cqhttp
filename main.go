@@ -112,8 +112,10 @@ func main() {
 				Host:    "0.0.0.0",
 				Port:    6700,
 			},
-			PostMessageFormat: "string",
-			Debug:             os.Getenv("DEBUG") == "true",
+			PostMessageFormat:   "string",
+			IgnoreInvalidCQCode: false,
+			ForceFragmented:     true,
+			Debug:               os.Getenv("DEBUG") == "true",
 		}
 		if post != "" {
 			conf.HttpConfig.PostUrls[post] = os.Getenv("HTTP_SECRET")
@@ -162,6 +164,22 @@ func main() {
 	} else if os.Getenv("ENABLE_DB") == "false" {
 		conf.EnableDB = false
 		log.Infof("已覆盖 ENABLE_DB 为 false")
+	}
+
+	if os.Getenv("IGNORE_INVALID_CQCODE") != "false" && os.Getenv("IGNORE_INVALID_CQCODE") != "" {
+		conf.IgnoreInvalidCQCode = true
+		log.Infof("已覆盖 IGNORE_INVALID_CQCODE 为 true")
+	} else if os.Getenv("IGNORE_INVALID_CQCODE") == "false" {
+		conf.IgnoreInvalidCQCode = false
+		log.Infof("已覆盖 IGNORE_INVALID_CQCODE 为 false")
+	}
+
+	if os.Getenv("FORCE_FRAGMENTED") != "false" && os.Getenv("FORCE_FRAGMENTED") != "" {
+		conf.ForceFragmented = true
+		log.Infof("已覆盖 FORCE_FRAGMENTED 为 true")
+	} else if os.Getenv("FORCE_FRAGMENTED") == "false" {
+		conf.ForceFragmented = false
+		log.Infof("已覆盖 FORCE_FRAGMENTED 为 false")
 	}
 
 	if conf.EncryptPassword && conf.PasswordEncrypted == "" {

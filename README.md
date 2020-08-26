@@ -132,3 +132,5 @@
 * `ACCESS_TOKEN` 访问令牌，需要和业务后端保持一致。
 * `ENABLE_DB` 默认为 `true`，若为 `false` 则不使用数据库，功能会受到限制。
 * `DEBUG` 若为 `true` 则输出更多的调试信息。
+* `IGNORE_INVALID_CQCODE` 若为 `true` 则会忽略错误的 CQ 码。
+* `FORCE_FRAGMENTED` 若为 `true` 则会强制分片发送群长消息。
