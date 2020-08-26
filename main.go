@@ -186,6 +186,16 @@ func main() {
 	time.Sleep(time.Second * 5)
 	log.Info("开始尝试登录并同步消息...")
 	cli := client.NewClient(conf.Uin, conf.Password)
+	cli.OnLog(func(c *client.QQClient, e *client.LogEvent) {
+		switch e.Type {
+		case "INFO":
+			log.Info("Protocol -> " + e.Message)
+		case "ERROR":
+			log.Error("Protocol -> " + e.Message)
+		case "DEBUG":
+			log.Debug("Protocol -> " + e.Message)
+		}
+	})
 	rsp, err := cli.Login()
 	for {
 		global.Check(err)
@@ -225,6 +235,8 @@ func main() {
 	} else {
 		coolq.SetMessageFormat(conf.PostMessageFormat)
 	}
+	coolq.IgnoreInvalidCQCode = conf.IgnoreInvalidCQCode
+	coolq.ForceFragmented = conf.ForceFragmented
 	if conf.HttpConfig != nil && conf.HttpConfig.Enabled {
 		server.HttpServer.Run(fmt.Sprintf("%s:%d", conf.HttpConfig.Host, conf.HttpConfig.Port), conf.AccessToken, b)
 		for k, v := range conf.HttpConfig.PostUrls {

@@ -10,6 +10,7 @@ import (
 	"github.com/Mrs4s/MiraiGo/message"
 	"github.com/Mrs4s/go-cqhttp/global"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 	"github.com/xujiajun/nutsdb"
 	"hash/crc32"
 	"path"
@@ -29,6 +30,8 @@ type CQBot struct {
 }
 
 type MSG map[string]interface{}
+
+var ForceFragmented = false
 
 func NewQQBot(cli *client.QQClient, conf *global.JsonConfig) *CQBot {
 	bot := &CQBot{
@@ -127,7 +130,7 @@ func (bot *CQBot) SendGroupMessage(groupId int64, m *message.SendingMessage) int
 		newElem = append(newElem, elem)
 	}
 	m.Elements = newElem
-	ret := bot.Client.SendGroupMessage(groupId, m)
+	ret := bot.Client.SendGroupMessage(groupId, m, ForceFragmented)
 	if ret == nil || ret.Id == -1 {
 		log.Warnf("群消息发送失败: 账号可能被风控.")
 		return -1
@@ -208,6 +211,12 @@ func (bot *CQBot) Release() {
 }
 
 func (bot *CQBot) dispatchEventMessage(m MSG) {
+	payload := gjson.Parse(m.ToJson())
+	filter := global.GetFilter()
+	if filter != nil && (*filter).Eval(payload) == false {
+		log.Debug("Event filtered!")
+		return
+	}
 	for _, f := range bot.events {
 		fn := f
 		go func() {
