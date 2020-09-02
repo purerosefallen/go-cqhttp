@@ -1,4 +1,4 @@
-FROM golang:1.14.2-alpine AS builder
+FROM golang:1.14.7-alpine AS builder
 ARG GO_CQHTTP_VERSION
 ENV GO_CQHTTP_VERSION ${GO_CQHTTP_VERSION:-v0.9.20-mycard}
 

@@ -22,6 +22,7 @@ import (
 	"github.com/Mrs4s/go-cqhttp/coolq"
 	"github.com/Mrs4s/go-cqhttp/global"
 	"github.com/Mrs4s/go-cqhttp/server"
+
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/rifflock/lfshook"
 	log "github.com/sirupsen/logrus"
@@ -311,24 +312,39 @@ func main() {
 	log.Info("资源初始化完成, 开始处理信息.")
 	log.Info("アトリは、高性能ですから!")
 	cli.OnDisconnected(func(bot *client.QQClient, e *client.ClientDisconnectedEvent) {
-		if conf.ReLogin {
-			log.Warnf("Bot已离线 (%v)，将在 %v 秒后尝试重连.", e.Message, conf.ReLoginDelay)
-			time.Sleep(time.Second * time.Duration(conf.ReLoginDelay))
-			rsp, err := cli.Login()
-			if err != nil {
-				log.Fatalf("重连失败: %v", err)
-			}
-			if !rsp.Success {
-				switch rsp.Error {
-				case client.NeedCaptcha:
-					log.Fatalf("重连失败: 需要验证码. (验证码处理正在开发中)")
-				case client.UnsafeDeviceError:
-					log.Fatalf("重连失败: 设备锁")
-				default:
-					log.Fatalf("重连失败: %v", rsp.ErrorMessage)
+		if conf.ReLogin.Enabled {
+			var times uint = 1
+			for {
+
+				if conf.ReLogin.MaxReloginTimes == 0 {
+				} else if times > conf.ReLogin.MaxReloginTimes {
+					break
 				}
+				log.Warnf("Bot已离线 (%v)，将在 %v 秒后尝试重连. 重连次数：%v",
+					e.Message, conf.ReLogin.ReLoginDelay, times)
+				times++
+				time.Sleep(time.Second * time.Duration(conf.ReLogin.ReLoginDelay))
+				rsp, err := cli.Login()
+				if err != nil {
+					log.Errorf("重连失败: %v", err)
+					continue
+				}
+				if !rsp.Success {
+					switch rsp.Error {
+					case client.NeedCaptcha:
+						log.Fatalf("重连失败: 需要验证码. (验证码处理正在开发中)")
+					case client.UnsafeDeviceError:
+						log.Fatalf("重连失败: 设备锁")
+					default:
+						log.Errorf("重连失败: %v", rsp.ErrorMessage)
+						continue
+					}
+				}
+				log.Info("重连成功")
+				return
+
 			}
-			return
+			log.Fatal("重连失败: 重连次数达到设置的上限值")
 		}
 		b.Release()
 		log.Fatalf("Bot已离线：%v", e.Message)
