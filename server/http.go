@@ -131,6 +131,9 @@ func (s *httpServer) Run(addr, authToken string, bot *coolq.CQBot) {
 	s.engine.Any("/set_group_name", s.SetGroupName)
 	s.engine.Any("/set_group_name_async", s.SetGroupName)
 
+	s.engine.Any("/_send_group_notice", s.SendGroupNotice)
+	s.engine.Any("/_send_group_notice_async", s.SendGroupNotice)
+
 	s.engine.Any("/set_group_leave", s.SetGroupLeave)
 	s.engine.Any("/set_group_leave_async", s.SetGroupLeave)
 
@@ -153,6 +156,9 @@ func (s *httpServer) Run(addr, authToken string, bot *coolq.CQBot) {
 
 	s.engine.Any("/get_version_info", s.GetVersionInfo)
 	s.engine.Any("/get_version_info_async", s.GetVersionInfo)
+
+	s.engine.Any("/_get_vip_info", s.GetVipInfo)
+	s.engine.Any("/_get_vip_info_async", s.GetVipInfo)
 
 	s.engine.Any("/.handle_quick_operation", s.HandleQuickOperation)
 
@@ -199,7 +205,7 @@ func (c *httpClient) onBotPushEvent(m coolq.MSG) {
 		return h
 	}()).SetTimeout(time.Second * time.Duration(c.timeout)).Do()
 	if err != nil {
-		log.Warnf("上报Event数据到 %v 失败: %v", c.addr, err)
+		log.Warnf("上报Event数据 %v 到 %v 失败: %v", m.ToJson(), c.addr, err)
 		return
 	}
 	if gjson.Valid(res) {
@@ -227,14 +233,14 @@ func (s *httpServer) GetGroupInfo(c *gin.Context) {
 
 func (s *httpServer) GetGroupMemberList(c *gin.Context) {
 	gid, _ := strconv.ParseInt(getParam(c, "group_id"), 10, 64)
-	c.JSON(200, s.bot.CQGetGroupMemberList(gid))
+	nc := getParamOrDefault(c, "no_cache", "false")
+	c.JSON(200, s.bot.CQGetGroupMemberList(gid, nc == "true"))
 }
 
 func (s *httpServer) GetGroupMemberInfo(c *gin.Context) {
 	gid, _ := strconv.ParseInt(getParam(c, "group_id"), 10, 64)
 	uid, _ := strconv.ParseInt(getParam(c, "user_id"), 10, 64)
-	nc := getParamOrDefault(c, "no_cache", "false")
-	c.JSON(200, s.bot.CQGetGroupMemberInfo(gid, uid, nc == "true"))
+	c.JSON(200, s.bot.CQGetGroupMemberInfo(gid, uid))
 }
 
 func (s *httpServer) SendMessage(c *gin.Context) {
@@ -347,7 +353,12 @@ func (s *httpServer) SetWholeBan(c *gin.Context) {
 
 func (s *httpServer) SetGroupName(c *gin.Context) {
 	gid, _ := strconv.ParseInt(getParam(c, "group_id"), 10, 64)
-	c.JSON(200, s.bot.CQSetGroupName(gid, getParam(c, "name")))
+	c.JSON(200, s.bot.CQSetGroupName(gid, getParam(c, "group_name")))
+}
+
+func (s *httpServer) SendGroupNotice(c *gin.Context) {
+	gid, _ := strconv.ParseInt(getParam(c, "group_id"), 10, 64)
+	c.JSON(200, s.bot.CQSetGroupMemo(gid, getParam(c, "content")))
 }
 
 func (s *httpServer) SetGroupLeave(c *gin.Context) {
@@ -381,6 +392,11 @@ func (s *httpServer) GetVersionInfo(c *gin.Context) {
 	c.JSON(200, s.bot.CQGetVersionInfo())
 }
 
+func (s *httpServer) GetVipInfo(c *gin.Context) {
+	uid, _ := strconv.ParseInt(getParam(c, "user_id"), 10, 64)
+	c.JSON(200, s.bot.CQGetVipInfo(uid))
+}
+
 func (s *httpServer) HandleQuickOperation(c *gin.Context) {
 	if c.Request.Method != "POST" {
 		c.AbortWithStatus(404)
@@ -399,7 +415,6 @@ func getParamOrDefault(c *gin.Context, k, def string) string {
 	}
 	return def
 }
-
 
 func getParam(c *gin.Context, k string) string {
 	p, _ := getParamWithType(c, k)
