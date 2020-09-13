@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -319,7 +320,7 @@ func (c *websocketConn) handleRequest(bot *coolq.CQBot, payload []byte) {
 			c.Close()
 		}
 	}()
-
+	global.RateLimit(context.Background())
 	j := gjson.ParseBytes(payload)
 	t := strings.ReplaceAll(j.Get("action").Str, "_async", "")
 	log.Debugf("WS接收到API调用: %v 参数: %v", t, j.Get("params").Raw)
@@ -453,6 +454,14 @@ var wsApi = map[string]func(*coolq.CQBot, gjson.Result) coolq.MSG{
 	"set_group_name": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
 		return bot.CQSetGroupName(p.Get("group_id").Int(), p.Get("group_name").Str)
 	},
+	"set_group_admin": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
+		return bot.CQSetGroupAdmin(p.Get("group_id").Int(), p.Get("user_id").Int(), func() bool {
+			if p.Get("enable").Exists() {
+				return p.Get("enable").Bool()
+			}
+			return true
+		}())
+	},
 	"_send_group_notice": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
 		return bot.CQSetGroupMemo(p.Get("group_id").Int(), p.Get("content").Str)
 	},
@@ -485,6 +494,9 @@ var wsApi = map[string]func(*coolq.CQBot, gjson.Result) coolq.MSG{
 	},
 	"_get_vip_info": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
 		return bot.CQGetVipInfo(p.Get("user_id").Int())
+	},
+	"reload_event_filter": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
+		return bot.CQReloadEventFilter()
 	},
 	".handle_quick_operation": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
 		return bot.CQHandleQuickOperation(p.Get("context"), p.Get("operation"))
