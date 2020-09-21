@@ -6,7 +6,7 @@ variables:
   GIT_DEPTH: "1"
   CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
   CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:latest
-  GO_CQHTTP_VERSION: v0.9.24-fix2-mycard
+  GO_CQHTTP_VERSION: v0.9.25-fix3-mycard
 
 binary:
   stage: build
