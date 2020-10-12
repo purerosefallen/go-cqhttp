@@ -501,6 +501,15 @@ var wsApi = map[string]func(*coolq.CQBot, gjson.Result) coolq.MSG{
 	"reload_event_filter": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
 		return bot.CQReloadEventFilter()
 	},
+	".ocr_image": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
+		return bot.CQOcrImage(p.Get("image").Str)
+	},
+	".get_word_slices": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
+		return bot.CQGetWordSlices(p.Get("content").Str)
+	},
+	"set_group_portrait": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
+		return bot.CQSetGroupPortrait(p.Get("group_id").Int(), p.Get("file").String(), p.Get("cache").String())
+	},
 	".handle_quick_operation": func(bot *coolq.CQBot, p gjson.Result) coolq.MSG {
 		return bot.CQHandleQuickOperation(p.Get("context"), p.Get("operation"))
 	},
