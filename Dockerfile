@@ -1,6 +1,6 @@
 FROM golang:1.14.7-alpine AS builder
 ARG GO_CQHTTP_VERSION
-ENV GO_CQHTTP_VERSION ${GO_CQHTTP_VERSION:-v0.9.25-fix3-mycard}
+ENV GO_CQHTTP_VERSION ${GO_CQHTTP_VERSION:-v0.9.25-mycard}
 
 RUN go env -w GO111MODULE=auto \
   && go env -w CGO_ENABLED=0 \
