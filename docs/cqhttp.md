@@ -4,6 +4,28 @@
 
 ## CQCode
 
+### 图片
+
+| 参数名 | 可能的值 | 说明 |
+| --- |   --- | --- |
+| `file`  | - | 图片文件名 |
+| `type` | `flash`，`show` | 图片类型，`flash` 表示闪照，`show` 表示秀图，默认普通图片 |
+| `url`   | - | 图片 URL |
+| `cache` | `0` `1` | 只在通过网络 URL 发送时有效，表示是否使用已缓存的文件，默认 `1` |
+| `id`   | - | 发送秀图时的特效id，默认为40000 |
+
+可用的特效ID:
+
+| id     |类型   |
+| ---    |-------|
+| 40000  | 普通  | 
+| 40001  | 幻影  | 
+| 40002  | 抖动  | 
+| 40003  | 生日  | 
+| 40004  | 爱你  | 
+| 40005  | 征友  | 
+
+
 ### 回复
 
 Type : `reply`
@@ -358,9 +380,9 @@ Type: `tts`
 | `filename` | string | 图片文件原名   |
 | `url`      | string | 图片下载地址   |
 
-### 获取群消息
+### 获取消息
 
-终结点: `/get_group_msg` 
+终结点: `/get_msg` 
 
 参数
 
@@ -376,7 +398,7 @@ Type: `tts`
 | `real_id`    | int32   | 消息真实id |
 | `sender`     | object  | 发送者     |
 | `time`       | int32   | 发送时间   |
-| `content`    | message | 消息内容   |
+| `message`    | message | 消息内容   |
 
 ### 获取合并转发内容
 
@@ -449,6 +471,74 @@ Type: `tts`
 | 字段       | 类型              | 说明     |
 | ---------- | ----------------- | -------- |
 | `slices` |      string[]       | 词组 |
+
+### 图片OCR
+
+> 注意: 目前图片OCR接口仅支持接受的图片
+
+终结点: `/.ocr_image` 
+
+**参数** 
+ 
+ | 字段         | 类型   | 说明   |
+ | ------------ | ------ | ------ |
+ | `image` | string | 图片ID |
+ 
+**响应数据**
+ 
+ | 字段       | 类型              | 说明     |
+ | ---------- | ----------------- | -------- |
+ | `texts` |      TextDetection[]       | OCR结果 |
+ | `language` |      string       | 语言 |
+
+**TextDetection**
+
+ | 字段       | 类型              | 说明     |
+ | ---------- | ----------------- | -------- |
+ | `text` |      string       | 文本 |
+ | `confidence`| int32 | 置信度 |
+ | `coordinates` |      vector2       | 坐标 |
+ 
+
+### 获取群系统消息
+
+终结点: `/get_group_system_msg`
+
+**响应数据**
+
+ | 字段       | 类型              | 说明     |
+ | ---------- | ----------------- | -------- |
+ | `invited_requests` |      InvitedRequest[]       | 邀请消息列表 |
+ | `join_requests` |      JoinRequest[]        | 进群消息列表 |
+ 
+ > 注意: 如果列表不存在任何消息, 将返回 `null`
+ 
+ **InvitedRequest**
+ 
+  | 字段       | 类型              | 说明     |
+  | ---------- | ----------------- | -------- |
+  | `request_id` |      int64       | 请求ID |
+  | `invitor_uin` |      int64        | 邀请者 |
+  | `invitor_nick` |      string       | 邀请者昵称 |
+  | `group_id` | int64        | 群号 |
+  | `group_name` | string | 群名 |
+  | `checked` | bool | 是否已被处理|
+  | `actor` | int64 | 处理者, 未处理为0 |
+  
+  **JoinRequest**
+  
+  | 字段       | 类型              | 说明     |
+  | ---------- | ----------------- | -------- |
+  | `request_id` |      int64       | 请求ID |
+  | `requester_uin` |      int64        | 请求者ID |
+  | `requester_nick` |      string       | 请求者昵称 |
+  | `message` |      string       | 验证消息 |
+  | `group_id` | int64        | 群号 |
+  | `group_name` | string | 群名 |
+  | `checked` | bool | 是否已被处理|
+  | `actor` | int64 | 处理者, 未处理为0 |
+  
+
 
 ## 事件
 
@@ -537,3 +627,22 @@ Type: `tts`
 | `card_old`     | int64  |                | 旧名片 |
 
 > PS: 当名片为空时 `card_xx` 字段为空字符串, 并不是昵称
+
+#### 接收到离线文件
+
+**上报数据**
+
+| 字段          | 类型   | 可能的值       | 说明           |
+| ------------- | ------ | -------------- | -------------- |
+| `post_type`   | string | `notice`       | 上报类型       |
+| `notice_type` | string | `offline_file` | 消息类型       |
+| `user_id` | int64 |  | 发送者id |
+| `file`     | object  |                | 文件数据 |
+
+**file object**
+
+| 字段          | 类型   | 可能的值       | 说明           |
+| ------------- | ------ | -------------- | -------------- |
+| `name`   | string |      | 文件名       |
+| `size` | int64 | | 文件大小      |
+| `url` | string |  | 下载链接 |

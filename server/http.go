@@ -137,6 +137,7 @@ func (c *httpClient) onBotPushEvent(m coolq.MSG) {
 		log.Warnf("上报Event数据 %v 到 %v 失败: %v", m.ToJson(), c.addr, err)
 		return
 	}
+	log.Debugf("上报Event数据 %v 到 %v", m.ToJson(), c.addr)
 	if gjson.Valid(res) {
 		c.bot.CQHandleQuickOperation(gjson.Parse(m.ToJson()), gjson.Parse(res))
 	}
@@ -234,9 +235,9 @@ func (s *httpServer) GetImage(c *gin.Context) {
 	c.JSON(200, s.bot.CQGetImage(file))
 }
 
-func (s *httpServer) GetGroupMessage(c *gin.Context) {
+func (s *httpServer) GetMessage(c *gin.Context) {
 	mid, _ := strconv.ParseInt(getParam(c, "message_id"), 10, 32)
-	c.JSON(200, s.bot.CQGetGroupMessage(int32(mid)))
+	c.JSON(200, s.bot.CQGetMessage(int32(mid)))
 }
 
 func (s *httpServer) GetGroupHonorInfo(c *gin.Context) {
@@ -315,6 +316,10 @@ func (s *httpServer) SetGroupLeave(c *gin.Context) {
 func (s *httpServer) GetForwardMessage(c *gin.Context) {
 	resId := getParam(c, "message_id")
 	c.JSON(200, s.bot.CQGetForwardMessage(resId))
+}
+
+func (s *httpServer) GetGroupSystemMessage(c *gin.Context) {
+	c.JSON(200, s.bot.CQGetGroupSystemMessages())
 }
 
 func (s *httpServer) DeleteMessage(c *gin.Context) {
@@ -501,8 +506,11 @@ var httpApi = map[string]func(s *httpServer, c *gin.Context){
 	"get_forward_msg": func(s *httpServer, c *gin.Context) {
 		s.GetForwardMessage(c)
 	},
-	"get_group_msg": func(s *httpServer, c *gin.Context) {
-		s.GetGroupMessage(c)
+	"get_msg": func(s *httpServer, c *gin.Context) {
+		s.GetMessage(c)
+	},
+	"get_group_system_msg": func(s *httpServer, c *gin.Context) {
+		s.GetGroupSystemMessage(c)
 	},
 	"get_group_honor_info": func(s *httpServer, c *gin.Context) {
 		s.GetGroupHonorInfo(c)
